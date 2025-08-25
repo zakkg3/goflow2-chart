@@ -1,0 +1,195 @@
+{
+  "title": "Network Flow Overview",
+  "uid": "netflow-overview",
+  "tags": ["netflow", "network"],
+  "timezone": "Europe/Zurich",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "Traffic Volume Over Time",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+      "targets": [
+        {
+          "datasource": "ClickHouse",
+          "rawQuery": true,
+          "query": "SELECT toStartOfMinute(toTimeZone(time_received_ns, 'Europe/Zurich')) AS time, sum(bytes * if(sampling_rate > 0, sampling_rate, 1) * 8) / 60 as bits_per_second FROM netflow.flows_raw WHERE time_received_ns > now() - INTERVAL 1 HOUR GROUP BY time ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps"
+        }
+      }
+    },
+    {
+      "title": "Top Source IPs by Traffic",
+      "type": "table",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": "ClickHouse",
+          "rawQuery": true,
+          "format": "table",
+          "query": "SELECT IPv4NumToString(reinterpretAsUInt32(reverse(substring(src_addr, 1, 4)))) as \"Source IP\", sum(bytes * if(sampling_rate > 0, sampling_rate, 1)) as \"Total Bytes\" FROM netflow.flows_raw WHERE time_received_ns > now() - INTERVAL 1 HOUR GROUP BY src_addr ORDER BY \"Total Bytes\" DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Top Destination IPs by Traffic",
+      "type": "table",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": "ClickHouse",
+          "rawQuery": true,
+          "format": "table",
+          "query": "SELECT IPv4NumToString(reinterpretAsUInt32(reverse(substring(dst_addr, 1, 4)))) as \"Destination IP\", sum(bytes * if(sampling_rate > 0, sampling_rate, 1)) as \"Total Bytes\" FROM netflow.flows_raw WHERE time_received_ns > now() - INTERVAL 1 HOUR GROUP BY dst_addr ORDER BY \"Total Bytes\" DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Protocol Distribution",
+      "type": "piechart",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": "ClickHouse",
+          "rawQuery": true,
+          "format": "table",
+          "query": "SELECT proto as metric, sum(bytes * if(sampling_rate > 0, sampling_rate, 1)) as value FROM netflow.flows_raw GROUP BY proto HAVING proto > 0"
+        }
+      ],
+      "options": {
+        "pieType": "pie",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": "metric"
+        },
+        "displayLabels": ["value"]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "ICMP"
+                },
+                "6": {
+                  "text": "TCP"
+                },
+                "17": {
+                  "text": "UDP"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "proto"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "ICMP"
+                      },
+                      "6": {
+                        "text": "TCP"
+                      },
+                      "17": {
+                        "text": "UDP"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Top Destination Ports by Traffic",
+      "type": "table",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": "ClickHouse",
+          "rawQuery": true,
+          "format": "table",
+          "query": "SELECT dst_port as \"Port\", sum(bytes * if(sampling_rate > 0, sampling_rate, 1)) as \"Total Bytes\" FROM netflow.flows_raw WHERE time_received_ns > now() - INTERVAL 1 HOUR AND dst_port < 1024 GROUP BY dst_port ORDER BY \"Total Bytes\" DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

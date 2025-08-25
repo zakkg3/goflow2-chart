@@ -1,0 +1,41 @@
+{{- if .Values.goflow2.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "netflow-pipeline.goflow2.fullname" . }}
+  labels:
+    {{- include "netflow-pipeline.goflow2.labels" . | nindent 4 }}
+  {{- with .Values.goflow2.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.goflow2.service.type }}
+  ports:
+    {{- if .Values.goflow2.config.netflow.enabled }}
+    - port: {{ .Values.goflow2.config.netflow.port }}
+      targetPort: netflow
+      protocol: UDP
+      name: netflow
+    {{- end }}
+    {{- if .Values.goflow2.config.sflow.enabled }}
+    - port: {{ .Values.goflow2.config.sflow.port }}
+      targetPort: sflow
+      protocol: UDP
+      name: sflow
+    {{- end }}
+    {{- if .Values.goflow2.config.ipfix.enabled }}
+    - port: {{ .Values.goflow2.config.ipfix.port }}
+      targetPort: ipfix
+      protocol: UDP
+      name: ipfix
+    {{- end }}
+    {{- if .Values.goflow2.config.metrics.enabled }}
+    - port: {{ .Values.goflow2.config.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  selector:
+    {{- include "netflow-pipeline.goflow2.selectorLabels" . | nindent 4 }}
+{{- end }}

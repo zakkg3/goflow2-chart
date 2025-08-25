@@ -1,0 +1,18 @@
+{{- if .Values.dashboardsConfigmap.enable }}
+{{- $root := . }}
+{{- range $path, $_ := .Files.Glob "dashboards/**.json" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    grafana_dashboard: "1"
+    {{- include "netflow-pipeline.labels" $root | nindent 4 }}
+  annotations:
+    grafana_folder: "NetFlow"
+  name: "{{ base $path | lower | trimSuffix ".json" }}"
+data:
+  {{ base $path | lower }}:
+{{ $root.Files.Get $path | toJson | indent 4 }}
+{{- end }}
+{{- end }}

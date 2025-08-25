@@ -1,0 +1,26 @@
+{{- if and .Values.goflow2.enabled .Values.goflow2.config.metrics.enabled (or .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled) }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "netflow-pipeline.goflow2.fullname" . }}
+  labels:
+    {{- include "netflow-pipeline.goflow2.labels" . | nindent 4 }}
+    {{- with .Values.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if .Values.prometheus.serviceMonitor.namespace }}
+  namespace: {{ .Values.prometheus.serviceMonitor.namespace }}
+  {{- end }}
+spec:
+  endpoints:
+    - port: metrics
+      path: {{ .Values.goflow2.config.metrics.path }}
+      interval: {{ .Values.prometheus.serviceMonitor.interval | default "30s" }}
+      scrapeTimeout: {{ .Values.prometheus.serviceMonitor.scrapeTimeout | default "10s" }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      {{- include "netflow-pipeline.goflow2.selectorLabels" . | nindent 6 }}
+{{- end }}

@@ -1,0 +1,54 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "netflow-pipeline.fullname" . }}-goflow2
+  labels:
+    {{- include "netflow-pipeline.labels" . | nindent 4 }}
+    app.kubernetes.io/component: goflow2
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "netflow-pipeline.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: goflow2
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow flow data ingress on all protocols
+    - ports:
+        - port: 2055  # NetFlow/IPFIX
+          protocol: UDP
+        - port: 6343  # sFlow
+          protocol: UDP
+        - port: 8080  # Metrics
+          protocol: TCP
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow connection to Kafka
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+              app.kubernetes.io/component: broker
+      ports:
+        - port: 9092
+          protocol: TCP
+    # Allow connection to Kafka controller
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+              app.kubernetes.io/component: controller
+      ports:
+        - port: 9092
+          protocol: TCP

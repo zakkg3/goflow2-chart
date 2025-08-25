@@ -1,0 +1,26 @@
+{{- if .Values.goflow2.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "netflow-pipeline.goflow2.fullname" . }}-config
+  labels:
+    {{- include "netflow-pipeline.goflow2.labels" . | nindent 4 }}
+data:
+  goflow2.yaml: |
+    # GoFlow2 configuration
+    transport:
+      kafka:
+        brokers:
+          - {{ .Values.goflow2.config.kafka.brokers }}
+        topic: {{ .Values.goflow2.config.kafka.topic }}
+        compression: {{ .Values.goflow2.config.kafka.compression }}
+        batch_size: {{ .Values.goflow2.config.kafka.batchSize }}
+        batch_timeout: {{ .Values.goflow2.config.kafka.batchTimeout }}
+    
+    metrics:
+      enabled: {{ .Values.goflow2.config.metrics.enabled }}
+      {{- if .Values.goflow2.config.metrics.enabled }}
+      address: ":{{ .Values.goflow2.config.metrics.port }}"
+      path: "{{ .Values.goflow2.config.metrics.path }}"
+      {{- end }}
+{{- end }}

@@ -1,0 +1,95 @@
+{{- if .Values.goflow2.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "netflow-pipeline.goflow2.fullname" . }}
+  labels:
+    {{- include "netflow-pipeline.goflow2.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.goflow2.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "netflow-pipeline.goflow2.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/goflow2-configmap.yaml") . | sha256sum }}
+        {{- with .Values.goflow2.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "netflow-pipeline.goflow2.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.goflow2.podSecurityContext | nindent 8 }}
+      containers:
+        - name: goflow2
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: "{{ .Values.goflow2.image.repository }}:{{ .Values.goflow2.image.tag }}"
+          imagePullPolicy: {{ .Values.goflow2.image.pullPolicy }}
+          args:
+            - "-transport.kafka.brokers={{ .Values.goflow2.config.kafka.brokers }}"
+            - "-transport=kafka"
+            - "-transport.kafka.topic={{ .Values.goflow2.config.kafka.topic }}"
+            - "-format=bin"
+          ports:
+            {{- if .Values.goflow2.config.netflow.enabled }}
+            - name: netflow
+              containerPort: {{ .Values.goflow2.config.netflow.port }}
+              protocol: UDP
+            {{- end }}
+            {{- if .Values.goflow2.config.sflow.enabled }}
+            - name: sflow
+              containerPort: {{ .Values.goflow2.config.sflow.port }}
+              protocol: UDP
+            {{- end }}
+            {{- if .Values.goflow2.config.ipfix.enabled }}
+            - name: ipfix
+              containerPort: {{ .Values.goflow2.config.ipfix.port }}
+              protocol: UDP
+            {{- end }}
+            {{- if .Values.goflow2.config.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.goflow2.config.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          {{- if .Values.goflow2.config.metrics.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.goflow2.config.metrics.path }}
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.goflow2.config.metrics.path }}
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          {{- end }}
+          resources:
+            {{- toYaml .Values.goflow2.resources | nindent 12 }}
+      {{- with .Values.goflow2.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.goflow2.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.goflow2.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

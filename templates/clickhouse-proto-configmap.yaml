@@ -1,0 +1,11 @@
+{{- if .Values.clickhouse.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "netflow-pipeline.fullname" . }}-clickhouse-clickhouse-proto
+  labels:
+    {{- include "netflow-pipeline.labels" . | nindent 4 }}
+data:
+  flow.proto: |
+{{ .Files.Get "files/flow.proto" | indent 4 }}
+{{- end }}

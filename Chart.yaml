@@ -1,0 +1,35 @@
+apiVersion: v2
+name: netflow-pipeline
+description: A Helm chart for deploying NetFlow/sFlow/IPFIX monitoring pipeline with GoFlow2, ClickHouse, and Grafana
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - netflow
+  - sflow
+  - ipfix
+  - monitoring
+  - goflow2
+  - clickhouse
+  - grafana
+  - kafka
+maintainers:
+  - name: Nicolas Kowenski
+    email: nicokowe@gmail.com
+dependencies:
+  - name: grafana
+    version: "9.2.10"
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled
+  - name: kafka
+    version: "32.3.6"
+    repository: https://charts.bitnami.com/bitnami
+    condition: kafka.enabled
+  - name: clickhouse
+    version: "9.3.10"
+    repository: https://charts.bitnami.com/bitnami
+    condition: clickhouse.enabled
+  - name: prometheus
+    version: "27.28.0"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus.enabled
