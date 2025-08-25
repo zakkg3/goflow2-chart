@@ -140,6 +140,78 @@ IP addresses are stored as FixedString(16) to support both IPv4 and IPv6. IPv4 a
 ### Sampling Rate
 Many flows have `sampling_rate=0`. Dashboard queries handle this by using `if(sampling_rate > 0, sampling_rate, 1)`.
 
+## Testing
+
+### Generate Test Flow Data
+
+To test the pipeline with simulated flow data:
+
+```bash
+# Generate NetFlow v5 data (port 2055)
+podman run --rm -it --network host docker.io/networkstatic/nflow-generator -t <GOFLOW2_IP> -p 2055
+
+# Or using Docker
+docker run --rm -it --network host networkstatic/nflow-generator -t <GOFLOW2_IP> -p 2055
+```
+
+### Verify Data Flow
+
+```bash
+# Check GoFlow2 is receiving flows
+kubectl logs -n netflow-system deployment/netflow-pipeline-goflow2 | tail -20
+
+# Check Kafka has messages
+kubectl exec -n netflow-system netflow-pipeline-kafka-controller-0 -- \
+  kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic flows --max-messages 1
+
+# Verify ClickHouse is consuming from Kafka
+kubectl exec -n netflow-system netflow-pipeline-clickhouse-shard0-0 -- \
+  clickhouse-client --user=default --password=1234 --query "SELECT count(*) FROM netflow.flows_raw"
+```
+
+### Example ClickHouse Queries
+
+```sql
+-- Traffic over time (bits per second)
+SELECT 
+    toStartOfMinute(time_received_ns) AS time, 
+    sum(bytes * if(sampling_rate > 0, sampling_rate, 1) * 8) / 60 as bits_per_second 
+FROM netflow.flows_raw 
+WHERE time_received_ns > now() - INTERVAL 1 HOUR 
+GROUP BY time 
+ORDER BY time;
+
+-- Top Source IPs by traffic
+SELECT 
+    IPv4NumToString(reinterpretAsUInt32(reverse(substring(src_addr, 1, 4)))) as SrcAddr, 
+    sum(bytes * if(sampling_rate > 0, sampling_rate, 1)) as TotalBytes 
+FROM netflow.flows_raw 
+WHERE time_received_ns > now() - INTERVAL 1 HOUR 
+GROUP BY src_addr 
+ORDER BY TotalBytes DESC 
+LIMIT 10;
+
+-- Protocol distribution
+SELECT 
+    if(proto = 6, 'TCP', if(proto = 17, 'UDP', if(proto = 1, 'ICMP', toString(proto)))) as Protocol,
+    sum(bytes * if(sampling_rate > 0, sampling_rate, 1)) as TotalBytes
+FROM netflow.flows_raw 
+WHERE time_received_ns > now() - INTERVAL 1 HOUR 
+GROUP BY proto 
+ORDER BY TotalBytes DESC;
+
+-- Top destination ports
+SELECT 
+    dst_port, 
+    sum(bytes * if(sampling_rate > 0, sampling_rate, 1)) as TotalBytes 
+FROM netflow.flows_raw 
+WHERE time_received_ns > now() - INTERVAL 1 HOUR 
+    AND dst_port < 1024 
+GROUP BY dst_port 
+ORDER BY TotalBytes DESC 
+LIMIT 10;
+```
+
 ## Troubleshooting
 
 ### No data in Grafana dashboards
